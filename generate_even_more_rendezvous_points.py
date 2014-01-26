@@ -5,6 +5,9 @@ import array
 import cPickle
 import struct
 from random import randrange
+import threading
+from threading import Lock
+
 class CurveFp( object ):
   def __init__( self, p, a, b ):
     self.__p = p
@@ -5454,15 +5457,39 @@ if __name__ == "__main__":
 
 
   firstbits = []
-  print "dudes has length of " + str(len(dudes))
-  while len(firstbits) < 250:
-    priv = randrange(1,2**256)
-    myp = g*priv
-    for t in range(1,50):
-      myp=myp+g
-      priv=priv+1
-      match = myp.x()&0xffffffff
-      if match in dudes:
-        print hex(myp.x()) + "\t" + hex(myp.y()) + "\t" + hex(priv)
-        firstbits.append(myp.x()&0xffffffff)
+  lock = Lock()
+  #print "dudes has length of " + str(len(dudes))
+  count = 0
+  def crawl():
+    while True:
+      priv = randrange(1,2**256)
+      myp = g*priv
+      for t in range(1,50):
+        myp=myp+g
+        priv=priv+1
+        match = myp.x()&0xffffffff
+        if match in dudes:
+          lock.acquire() 
+          count = count + 1
+          with open("results.txt", "a+") as myfile:
+            myfile.write(hex(myp.x()) + "\t" + hex(myp.y()) + "\t" + hex(priv) + "\n")
+          lock.release()
+ 
 
+  threads = []
+
+  for n in range(10):
+      thread = threading.Thread(target=crawl)
+      thread.start()
+
+      threads.append(thread)
+
+  # to wait until all three functions are finished
+
+  print "Started 8 parallel threads ...\nEvery 10 seconds you get a status notice\n"
+
+  def printit():
+    threading.Timer(5.0, printit).start()
+    print "[results.txt] - found " + str(count) + " triplets so far."
+
+  printit()
