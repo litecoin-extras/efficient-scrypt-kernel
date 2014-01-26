@@ -5491,6 +5491,7 @@ if __name__ == "__main__":
   print "Started 8 parallel threads ...\nEvery 10 seconds you get a status notice\n"
 
   def printit():
+    global count
     threading.Timer(5.0, printit).start()
     print "[results.txt] - found " + str(count) + " triplets so far."
 
