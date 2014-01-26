@@ -160,9 +160,7 @@ class Public_key( object ):
       raise RuntimeError, "Generator point has x or y out of range."
 
 
-sex = CurveFp( _p, _a, _b )
-ass = Point( sex, _Gx, _Gy, _r )
-g = ass
+
 
 if __name__ == "__main__":
   print '======================================================================='
@@ -177,6 +175,9 @@ if __name__ == "__main__":
   #print "dudes has length of " + str(len(dudes))
   count = 0
   def crawl():
+    sex = CurveFp( _p, _a, _b )
+    ass = Point( sex, _Gx, _Gy, _r )
+    g = ass
     dudes = set()
     dudes.add(0xe8c4cd13L)
     dudes.add(0x567feb3cL)
