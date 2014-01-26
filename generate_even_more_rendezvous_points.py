@@ -172,8 +172,10 @@ if __name__ == "__main__":
 
   firstbits = []
   lock = Lock()
+  lock2 = Lock()
   #print "dudes has length of " + str(len(dudes))
   count = 0
+  speed = 0
   def crawl():
     sex = CurveFp( _p, _a, _b )
     ass = Point( sex, _Gx, _Gy, _r )
@@ -5464,9 +5466,14 @@ if __name__ == "__main__":
     dudes.add(0x2546ae4bL)
     dudes.add(0x8518d6e9L)
     while True:
+      global speed
       priv = randrange(1,2**256)
       myp = g*priv
-      for t in range(1,50):
+      tries=50
+      lock2.acquire() 
+      speed += tries
+      lock2.release() 
+      for t in range(1,tries):
         myp=myp+g
         priv=priv+1
         match = myp.x()&0xffffffff
@@ -5481,10 +5488,9 @@ if __name__ == "__main__":
 
   threads = []
 
-  for n in range(8):
+  for n in range(1):
       thread = threading.Thread(target=crawl)
       thread.start()
-
       threads.append(thread)
 
   # to wait until all three functions are finished
@@ -5493,8 +5499,13 @@ if __name__ == "__main__":
 
   def printit():
     global count
+    global speed
+    tries = speed/5
+    lock2.acquire()
+    speed=0
+    lock2.release()
     threading.Timer(5.0, printit).start()
-    print "[results.txt] - found " + str(count) + " triplets so far."
+    print "[results.txt] - found " + str(count) + " triplets so far.\tSpeed: " + str(tries) + " key/sec"
 
   thread = threading.Thread(target=printit)
   thread.start()
