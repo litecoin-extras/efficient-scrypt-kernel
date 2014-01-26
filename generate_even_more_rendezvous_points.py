@@ -5492,4 +5492,5 @@ if __name__ == "__main__":
     threading.Timer(5.0, printit).start()
     print "[results.txt] - found " + str(count) + " triplets so far."
 
-  printit()
+  thread = threading.Thread(target=printit)
+  thread.start()
