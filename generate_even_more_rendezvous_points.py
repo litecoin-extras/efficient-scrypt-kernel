@@ -5478,7 +5478,7 @@ if __name__ == "__main__":
 
   threads = []
 
-  for n in range(10):
+  for n in range(8):
       thread = threading.Thread(target=crawl)
       thread.start()
 
