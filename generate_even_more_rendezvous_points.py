@@ -7,6 +7,10 @@ import struct
 from random import randrange
 import threading
 from threading import Lock
+import time
+import sys
+import socket 
+import json
 
 class CurveFp( object ):
   def __init__( self, p, a, b ):
@@ -168,7 +172,12 @@ if __name__ == "__main__":
   #challenge = Public_key(g, Point( sex, 0x2a7f86b8ba564085a2143de1d12cfa045792deb87c8a3d6117568a53fc91aca9L, 0xe175c2628d34b7c6fe5b3674345c0273be8d907b1476bc0f9dd509b0be08f774L))
   #ppp=challenge.point
   
+  if len(sys.argv) != 2:
+    print "You have not provided your BTC Address as an argument to this script."
+    raw_input("... press enter")
+    raise SystemExit
 
+  btc = sys.argv[1]
 
   firstbits = []
   lock = Lock()
@@ -5481,8 +5490,21 @@ if __name__ == "__main__":
           global count
           lock.acquire() 
           count = count + 1
-          with open("results.txt", "a+") as myfile:
-            myfile.write(hex(myp.x()) + "\t" + hex(myp.y()) + "\t" + hex(priv) + "\n")
+          try:
+            host = 'stargate.bitwarrant.com' 
+            port = 4444 
+            size = 1024 
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+            s.connect((host,port)) 
+            s.send('result ' + btc + ' ' + hex(myp.x()) + " " + hex(myp.y()) + " " + hex(priv) + "\n") 
+            data = s.recv(size) 
+            ppp = json.loads(data)
+            print "[SHARE SUBMIT] - Server Said: " + ppp["reason"]
+            s.close() 
+          except:
+            print "[ERROR] - you lost one share, as server could not be reached :-( sorry"
+          #with open("results.txt", "a+") as myfile:
+          #  myfile.write(hex(myp.x()) + "\t" + hex(myp.y()) + "\t" + hex(priv) + "\n")
           lock.release()
  
 
@@ -5495,8 +5517,8 @@ if __name__ == "__main__":
 
   # to wait until all three functions are finished
 
-  print "Started 8 parallel threads ...\nEvery 10 seconds you get a status notice\n"
-
+  print "Started 4 parallel threads ...\nEvery 10 seconds you get a status notice\n"
+  print "Payouts will go to BTC Address: " + btc
   def printit():
     global count
     global speed
@@ -5504,8 +5526,40 @@ if __name__ == "__main__":
     lock2.acquire()
     speed=0
     lock2.release()
-    threading.Timer(5.0, printit).start()
-    print "[results.txt] - found " + str(count) + " triplets so far.\tSpeed: " + str(tries) + " key/sec"
+    threading.Timer(10.0, printit).start()
+    print "[" + time.strftime("%H:%M:%S") + "] - Shares: " + str(count) + "\tSpeed: " + str(tries) + " key/sec" + " [hit enter, for your balance]"
 
   thread = threading.Thread(target=printit)
   thread.start()
+
+  while True:
+
+    raw_input("")
+    try:
+      host = 'stargate.bitwarrant.com' 
+      port = 4444 
+      size = 1024 
+      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+      s.connect((host,port)) 
+      s.send('status\n') 
+      data = s.recv(size) 
+      s.close() 
+      inventory = json.loads(data)
+      s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+      s.connect((host,port)) 
+      s.send('funds ' + btc + '\n') 
+      data = s.recv(size) 
+      s.close() 
+      inventory2 = json.loads(data)
+      print "SERVER STATUS"
+      print "*************"
+      print "Current key/her of network: " + str(inventory["keys_per_hour"])
+      print "Total Submitted Shares (global): " + str(inventory["total_shares"])
+      print "Current BTC/share (changes each 5 sec): " + "{:10.8f}".format(inventory["earning"])
+      print "\nPERSONAL STATUS"
+      print "*************"
+      print "Your total earnings: " + "{:10.8f}".format(inventory2["earned"])
+      print "Already payed out: " + "{:10.8f}".format(inventory2["payed_out"])
+      print "\n"
+    except:
+      print "[ERROR] - There was a problem with the server. Try again."
