@@ -1,3 +1,4 @@
+import os
 import SocketServer
 import json
 import time
@@ -9,7 +10,7 @@ from threading import Lock
 import json
 import ast
 from json import JSONEncoder
-
+SocketServer.TCPServer.allow_reuse_address = True
 
 class CurveFp( object ):
   def __init__( self, p, a, b ):
@@ -5493,27 +5494,38 @@ class EchoRequestHandler(SocketServer.BaseRequestHandler):
         global earning
         global connections
         global logger
-        while True:
+        if True:
             data=""
             while True:
                 a = self.request.recv(1)
                 if a == "\n":
-                    break;
+                    break
+		if len(a)==0:
+			data = ""
+			break
                 data = data + a
 
             if len(data) == 0:
-                break
+                return
             if data.strip().startswith( 'funds' ):
                 t = data.strip().split(" ")
                 if len(t)==2:
                     t = data.strip().split(" ")
                     cur=con.execute("SELECT * from Users WHERE Address=?",[t[1]])
                     result=cur.fetchone()
-                    howmany = float(result[1])
-                    howmany2 = float(result[2])
+		    howmany=0
+		    howmany2=0
+		    try:	
+                    	howmany = float(result[1])
+                    	howmany2 = float(result[2])
+		    except:
+			howmany=0
                     jsonString = JSONEncoder().encode({"msg": "funds","earned": howmany,"payed_out":howmany2})
                     self.request.send(jsonString)
             if data.strip()=="status":
+		#for ia in dudes:
+		#	f = file(hex(ia) + ".dat", "w+")
+		#	f.write("0")
                 # Echo the back to the client
                 jsonString = JSONEncoder().encode({"msg": "status","keys_per_hour": perhour,"conns": connections, "earning":earning, "total_shares":totalshares})
                 self.request.send(jsonString)
@@ -5547,6 +5559,20 @@ class EchoRequestHandler(SocketServer.BaseRequestHandler):
                             cmd = "UPDATE Users SET SatoshiEarned=SatoshiEarned+? WHERE Address=?"
                             con.execute(cmd, (earning,t[1]))
                             con.commit()
+			    sharesuffix = myp.x()&0xffffffff
+			    line = "0"
+			    try:
+			    	f = open(hex(sharesuffix) + ".dat",'r')
+			    	string = ""
+			    	line = f.readline()
+			    	f.close()
+			    except:
+				line="0"
+			    jjj = int(line)
+			    jjj=jjj+1
+			    f = open(hex(sharesuffix) + ".dat",'w+')
+			    f.write(str(jjj))
+			    f.close()
 
                             cmd = "INSERT INTO Shares VALUES(?,?,?,?,0)"
                             public_counter=public_counter+1
@@ -5569,44 +5595,15 @@ class EchoRequestHandler(SocketServer.BaseRequestHandler):
         self.logger.debug('finish')
         return SocketServer.BaseRequestHandler.finish(self)
 
-class EchoServer(SocketServer.TCPServer):
-    
+class EchoServer(SocketServer.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
     def __init__(self, server_address, handler_class=EchoRequestHandler):
         self.logger = logging.getLogger('EchoServer')
         self.logger.debug('__init__')
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
         return
 
-    def server_activate(self):
-        self.logger.debug('server_activate')
-        SocketServer.TCPServer.server_activate(self)
-        return
-
-    def serve_forever(self):
-        self.logger.debug('waiting for request')
-        self.logger.info('Handling requests, press <Ctrl-C> to quit')
-        while True:
-            self.handle_request()
-        return
-
-    def handle_request(self):
-        return SocketServer.TCPServer.handle_request(self)
-
-    def verify_request(self, request, client_address):
-        return SocketServer.TCPServer.verify_request(self, request, client_address)
-
-    def process_request(self, request, client_address):
-        return SocketServer.TCPServer.process_request(self, request, client_address)
-
-    def server_close(self):
-        self.logger.debug('server_close')
-        return SocketServer.TCPServer.server_close(self)
-
-    def finish_request(self, request, client_address):
-        return SocketServer.TCPServer.finish_request(self, request, client_address)
-
-    def close_request(self, request_address):
-        return SocketServer.TCPServer.close_request(self, request_address)
 
 
 def difficulty_anpassung (): 
@@ -5624,16 +5621,38 @@ def difficulty_anpassung ():
   result=cur.fetchone()
   totalshares = result[0]
 
+  cur=con.execute("SELECT * from Users ORDER BY SatoshiEarned DESC")
+  users = []
+  f = file("users.txt", "w+")
+  for row in cur:
+  	f.write(row[0] + " " + str(row[1]) + " " + str(row[2]) + "\n"	);
+  f.close()
+
   end = time.time()
   elapsed = end-start
   start=end
   h = (60*60)/elapsed
   perhour = public_counter*h
   if perhour>1:
-    earning=0.001 / float(perhour)
+    earning=0.002 / float(perhour)
   #else:
   #  earning=0
   public_counter=0
+  f = file("serverload.txt", "w+")
+  f.write(str(perhour) + "\n" + str(earning) + "\n" + str(connections) + "\n" + str(totalshares))
+  f.close()
+  
+  if os.path.exists("serverspeed.txt") == False:
+	f = file("serverspeed.txt", "w+")
+	f.write("0")
+	f.close()
+  lines = [line.strip() for line in open('serverspeed.txt')]
+  lines.append(perhour)
+  if len(lines)>200:
+	del lines[0]
+  f = file("serverspeed.txt", "w+")
+  f.writelines(["%s\n" % item  for item in lines])
+  f.close()
   logger.info('users: %d\tkey/h: %d\t1 key = %.7f BTC\ttotal keys: %d', connections, perhour, earning, totalshares)
   # BROADCAST INFO TO EVERYONE
   # json string broadcasten
@@ -5645,7 +5664,7 @@ difficulty_anpassung ();
 
 
 if __name__ == '__main__':
-    address = ('localhost', 4444) # let the kernel give us a port
+    address = ('', 4444) # let the kernel give us a port
     server = EchoServer(address, EchoRequestHandler)
     ip, port = server.server_address # find out what port we were given
 
