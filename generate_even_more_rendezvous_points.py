@@ -5474,17 +5474,41 @@ if __name__ == "__main__":
     dudes.add(0xe2075524L)
     dudes.add(0x2546ae4bL)
     dudes.add(0x8518d6e9L)
+
+
+    priv = randrange(1,2**256)
+    additor1 = randrange(1,2**230)
+    additor2 = randrange(1,2**230)
+    additor3 = randrange(1,2**128)
+
+    temppriv = priv
+
+    add1 = g*additor1
+    add2 = g*additor2
+    add3 = g*additor3
+
+    myp = g*priv
     while True:
       global speed
-      priv = randrange(1,2**256)
-      myp = g*priv
+      
+      shuffle=randrange(1,4)
+      if shuffle == 1:
+        myp=myp+add1
+        temppriv=temppriv+additor1
+      elif shuffle == 2:
+        myp=myp+add2
+        temppriv=temppriv+additor2
+      else:
+        myp=myp+add3
+        temppriv=temppriv+additor3
+      
       tries=50
       lock2.acquire() 
       speed += tries
       lock2.release() 
       for t in range(1,tries):
         myp=myp+g
-        priv=priv+1
+        temppriv=temppriv+1
         match = myp.x()&0xffffffff
         if match in dudes:
           global count
@@ -5496,7 +5520,7 @@ if __name__ == "__main__":
             size = 1024 
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
             s.connect((host,port)) 
-            s.send('result ' + btc + ' ' + hex(myp.x()) + " " + hex(myp.y()) + " " + hex(priv) + "\n") 
+            s.send('result ' + btc + ' ' + hex(myp.x()) + " " + hex(myp.y()) + " " + hex(temppriv) + "\n") 
             data = s.recv(size) 
             ppp = json.loads(data)
             print "[SHARE SUBMIT] - Server Said: " + ppp["reason"]
